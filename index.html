@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Podcast Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading {
+            display: none;
+        }
+        .loading.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">🎙️ AI Podcast Generator</h1>
+            <p class="text-gray-600">Transform your text transcripts into natural-sounding podcasts</p>
+        </div>
+
+        <!-- File Upload -->
+        <div class="mb-8">
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer"
+                 id="dropZone">
+                <input type="file" id="fileInput" accept=".txt" class="hidden">
+                <div class="text-gray-500">
+                    <svg class="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <p class="mb-2">Drag and drop your transcript file here</p>
+                    <p class="text-sm">or click to browse</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transcripts Section -->
+        <div id="transcriptSection" class="hidden mb-8">
+            <div class="bg-white rounded-lg shadow">
+                <div class="border-b">
+                    <nav class="flex" aria-label="Tabs">
+                        <button class="tab-btn px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600" data-tab="original">Original</button>
+                        <button class="tab-btn px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="enhanced">Enhanced</button>
+                        <button class="tab-btn px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="edit">Edit Enhanced</button>
+                    </nav>
+                </div>
+                
+                <div class="p-4">
+                    <!-- Original Transcript -->
+                    <div id="original" class="tab-content">
+                        <textarea class="w-full h-64 p-2 border rounded" readonly></textarea>
+                    </div>
+                    
+                    <!-- Enhanced Transcript -->
+                    <div id="enhanced" class="tab-content hidden">
+                        <div class="loading" id="enhancingSpinner">
+                            <p class="text-center text-gray-600">Enhancing transcript...</p>
+                        </div>
+                        <textarea class="w-full h-64 p-2 border rounded" readonly></textarea>
+                    </div>
+                    
+                    <!-- Edit Enhanced -->
+                    <div id="edit" class="tab-content hidden">
+                        <textarea class="w-full h-64 p-2 border rounded"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generate Section -->
+        <div id="generateSection" class="hidden">
+            <div class="mb-4">
+                <div class="flex space-x-4">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="version" value="original" class="form-radio">
+                        <span class="ml-2">Original Version</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="version" value="enhanced" class="form-radio" checked>
+                        <span class="ml-2">Enhanced Version</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="version" value="edited" class="form-radio">
+                        <span class="ml-2">Edited Version</span>
+                    </label>
+                </div>
+            </div>
+            
+            <button id="generateBtn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                Generate Podcast
+            </button>
+        </div>
+
+        <!-- Audio Player -->
+        <div id="audioSection" class="hidden mt-8">
+            <div class="bg-white rounded-lg shadow p-4">
+                <audio id="audioPlayer" controls class="w-full mb-4"></audio>
+                <button id="downloadBtn" class="bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700 transition-colors">
+                    Download Podcast
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            const transcriptSection = document.getElementById('transcriptSection');
+            const generateSection = document.getElementById('generateSection');
+            const audioSection = document.getElementById('audioSection');
+            
+            // File Upload Handling
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-blue-500');
+            });
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('border-blue-500');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-blue-500');
+                const file = e.dataTransfer.files[0];
+                handleFile(file);
+            });
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                handleFile(file);
+            });
+
+            // Tab Handling
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    showTab(tabId);
+                });
+            });
+
+            // Generate Button
+            document.getElementById('generateBtn').addEventListener('click', generatePodcast);
+
+            async function handleFile(file) {
+                if (file && file.type === 'text/plain') {
+                    const text = await file.text();
+                    document.querySelector('#original textarea').value = text;
+                    transcriptSection.classList.remove('hidden');
+                    generateSection.classList.remove('hidden');
+                    
+                    // Show loading state
+                    const enhancingSpinner = document.getElementById('enhancingSpinner');
+                    const enhancedTextarea = document.querySelector('#enhanced textarea');
+                    const editTextarea = document.querySelector('#edit textarea');
+                    
+                    enhancingSpinner.classList.add('active');
+                    enhancedTextarea.value = 'Enhancing...';
+                    
+                    try {
+                        const enhancedText = await enhanceTranscript(text);
+                        enhancedTextarea.value = enhancedText;
+                        editTextarea.value = enhancedText;
+                    } catch (error) {
+                        console.error('Error enhancing transcript:', error);
+                        enhancedTextarea.value = 'Error enhancing transcript';
+                    } finally {
+                        enhancingSpinner.classList.remove('active');
+                    }
+                }
+            }
+
+            function showTab(tabId) {
+                // Update tab buttons
+                tabBtns.forEach(btn => {
+                    if (btn.dataset.tab === tabId) {
+                        btn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+                        btn.classList.remove('text-gray-500');
+                    } else {
+                        btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                        btn.classList.add('text-gray-500');
+                    }
+                });
+
+                // Show selected tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(tabId).classList.remove('hidden');
+            }
+
+            async function enhanceTranscript(text) {
+                try {
+                    const response = await fetch('http://localhost:5000/enhance', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    return data.enhanced;
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error enhancing transcript: ' + error.message);
+                    return text;
+                }
+            }
+
+            async function generatePodcast() {
+                const version = document.querySelector('input[name="version"]:checked').value;
+                const text = document.querySelector(`#${version} textarea`).value;
+                
+                // Replace with your actual API endpoint
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                
+                document.getElementById('audioPlayer').src = url;
+                document.getElementById('downloadBtn').onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'podcast.mp3';
+                    a.click();
+                };
+                
+                audioSection.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html> 
