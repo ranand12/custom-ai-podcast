@@ -1,0 +1,11 @@
+streamlit
+google-cloud-aiplatform
+vertexai
+google-cloud-texttospeech
+python-dotenv>=0.19.0
+lxml>=4.9.3
+lxml_html_clean
+newspaper3k>=0.2.8
+PyPDF2
+pydub
+requests 
